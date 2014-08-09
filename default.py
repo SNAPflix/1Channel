@@ -951,10 +951,11 @@ def build_listitem(section_params, title, year, img, resurl, imdbnum='', season=
             srt_scraper=SRT_Scraper()
             language=_1CH.get_setting('subtitle-lang')
             tvshow_id=srt_scraper.get_tvshow_id(title, year)
-            srts=srt_scraper.get_episode_subtitles(language, tvshow_id, season, episode)
+            if tvshow_id is not None:
+                srts=srt_scraper.get_episode_subtitles(language, tvshow_id, season, episode)
+            else:
+                srts=[]
             meta['title']=utils.format_episode_label(meta['title'], season, episode, srts)
-            print title
-
 
         listitem = xbmcgui.ListItem(meta['title'], iconImage=img,
                                     thumbnailImage=img)
