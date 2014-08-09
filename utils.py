@@ -194,6 +194,48 @@ def format_label_source_parts(info, part_num):
     if info['verified']: label = format_label_source_verified(label)
     return label
 
+def format_episode_label(title, season, episode, srts):
+    req_hi = _1CH.get_setting('subtitle-hi')=='true'
+    req_hd = _1CH.get_setting('subtitle-hd')=='true'
+    print '%s, %s' % (req_hi, req_hd)
+    color='red'
+    percent=0
+    hi=None
+    hd=None
+    corrected=None
+    
+    for srt in srts:
+        if str(season)==srt['season'] and str(episode)==srt['episode']:
+            if not req_hi or srt['hi']:
+                if not req_hd or srt['hd']:
+                    if srt['completed']:
+                        color='green'
+                        if not hi: hi=srt['hi']
+                        if not hd: hd=srt['hd']
+                        if not corrected: corrected=srt['corrected']
+                    elif color!='green':
+                        color='yellow'
+                        if not hi: hi=srt['hi']
+                        if not hd: hd=srt['hd']
+                        if not corrected: corrected=srt['corrected']
+                        if float(srt['percent'])>percent:
+                            percent=srt['percent']
+    
+    title='[COLOR %s]%s[/COLOR]' % (color, title)
+    if color!='red':
+        title += ' (SRT: '
+        if color=='yellow':
+            title += ' %s%%, ' % (percent)
+        if hi: title += 'HI, '
+        if hd: title += 'HD, '
+        if corrected: title += 'Corrected, '
+        title = title[:-2]
+        title+= ')'
+    
+    return title
+
+def srt_indicators_enabled():
+    return (_1CH.get_setting('enable-subtitles')=='true' and (_1CH.get_setting('subtitle-indicator')=='true'))
 
 def has_upgraded():
     old_version = _1CH.get_setting('old_version').split('.')

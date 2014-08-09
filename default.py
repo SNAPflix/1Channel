@@ -39,6 +39,7 @@ from urllib2 import HTTPError
 from pw_scraper import PW_Scraper
 from db_utils import DB_Connection
 from pw_dispatcher import PW_Dispatcher
+from srt_scraper import SRT_Scraper
 from utils import MODES
 from utils import SUB_TYPES
 
@@ -554,6 +555,11 @@ def AddonMenu():  # homescreen
 @pw_dispatcher.register(MODES.LIST_MENU, ['section'])
 def BrowseListMenu(section):
     _1CH.log('Browse Options')
+    srt_scraper = SRT_Scraper()
+    tvshow_id=srt_scraper.get_tvshow_id('The Leftovers', '2014')
+    subtitles=srt_scraper.get_episode_subtitles('', tvshow_id, 1, 0)
+    print srt_scraper.download_subtitle(subtitles[0]['url'])
+    
     _1CH.add_directory({'mode': MODES.AZ_MENU, 'section': section}, {'title': 'A-Z'}, img=art('atoz.png'),
                        fanart=art('fanart.png'))
     add_search_item({'mode': MODES.SEARCH_QUERY, 'section': section, 'next_mode': MODES.SEARCH}, 'Search')
@@ -941,6 +947,15 @@ def build_listitem(section_params, title, year, img, resurl, imdbnum='', season=
         else:
             meta['title'] = utils.format_label_movie(meta)
 
+        if section_params['video_type']=='episode' and utils.srt_indicators_enabled():
+            srt_scraper=SRT_Scraper()
+            language=_1CH.get_setting('subtitle-lang')
+            tvshow_id=srt_scraper.get_tvshow_id(title, year)
+            srts=srt_scraper.get_episode_subtitles(language, tvshow_id, season, episode)
+            meta['title']=utils.format_episode_label(meta['title'], season, episode, srts)
+            print title
+
+
         listitem = xbmcgui.ListItem(meta['title'], iconImage=img,
                                     thumbnailImage=img)
         listitem.setInfo('video', meta)
@@ -1096,7 +1111,6 @@ def TVShowEpisodeList(title, season, imdbnum='', year=''):
 
         season = int(re.search('/season-([0-9]{1,4})-', epurl).group(1))
         epnum = int(re.search('-episode-([0-9]{1,3})', epurl).group(1))
-
         create_item(section_params, title, year, '', epurl, imdbnum, season, epnum)
 
     xbmcplugin.endOfDirectory(int(sys.argv[1]), cacheToDisc=_1CH.get_setting('dir-cache')=='true')

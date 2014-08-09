@@ -56,6 +56,16 @@
                  visible="gt(-1,0)+gt(-3,0)+gt(-5,0)+gt(-7,0)+gt(-9,0)+!eq(-11,false)"/>
     </category>
     
+    <category label="Subtitles">
+    	<setting id="enable-subtitles" type="bool" label="Enable Subtitles" default="false"/>
+		<setting id="subtitle-indicator" type="bool" label="Show subtitle indicators" default="true" enable="eq(-1,true)"/>
+    	<setting id="subtitle-lang" type="text" label="Subtitle Language" default="English" enable="eq(-2,true)"/>
+    	<setting id="subtitle-hi" type="bool" label="Require Hearing Impaired" default="false" enable="eq(-3,true)"/>
+    	<setting id="subtitle-hd" type="bool" label="Require HD" default="false" enable="eq(-4,true)"/>
+    	<setting id="subtitle-download" type="bool" label="Download Subtitles on playback" default="true" enable="eq(-5,true)"/>
+        <setting id="subtitle-folder" type="folder" label="Subtitle Download Folder" default="special://userdata/addon_data/plugin.video.1channel/Subtitles" enable="eq(-1,true)"/>
+    </category>
+    
     <category label="Performance">
         <setting id="dir-cache" type="bool" label="Cache Directory Listings (ON=Faster, but triggers XBMC bugs in resume)" default="false"/>
         <setting id="filter-source" type="bool" label="Filter Source Lists (OFF=Faster, but shows unusable sources)" default="true"/>Robinso
