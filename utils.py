@@ -197,7 +197,6 @@ def format_label_source_parts(info, part_num):
 def format_episode_label(title, season, episode, srts):
     req_hi = _1CH.get_setting('subtitle-hi')=='true'
     req_hd = _1CH.get_setting('subtitle-hd')=='true'
-    print '%s, %s' % (req_hi, req_hd)
     color='red'
     percent=0
     hi=None
@@ -215,10 +214,10 @@ def format_episode_label(title, season, episode, srts):
                         if not corrected: corrected=srt['corrected']
                     elif color!='green':
                         color='yellow'
-                        if not hi: hi=srt['hi']
-                        if not hd: hd=srt['hd']
-                        if not corrected: corrected=srt['corrected']
                         if float(srt['percent'])>percent:
+                            if not hi: hi=srt['hi']
+                            if not hd: hd=srt['hd']
+                            if not corrected: corrected=srt['corrected']
                             percent=srt['percent']
     
     title='[COLOR %s]%s[/COLOR]' % (color, title)
