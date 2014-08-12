@@ -130,17 +130,19 @@ class SRT_Scraper():
         else:
             filename='addic7ed_subtitle.srt'
 
-        if not xbmcvfs.exists(os.path.dirname(BASE_PATH)):
+        final_path = os.path.join(BASE_PATH, filename)
+        final_path = xbmc.translatePath(final_path)
+        if not xbmcvfs.exists(os.path.dirname(final_path)):
             try:
-                try: xbmcvfs.mkdirs(os.path.dirname(BASE_PATH))
-                except: os.mkdir(os.path.dirname(BASE_PATH))
+                try: xbmcvfs.mkdirs(os.path.dirname(final_path))
+                except: os.mkdir(os.path.dirname(final_path))
             except:
-                _1CH.log('Failed to create directory %s' % BASE_PATH)
-            else:
-                final_path = os.path.join(BASE_PATH, filename)
-                with open(final_path, 'w') as f:
-                    f.write(srt)
-                return final_path
+                _1CH.log('Failed to create directory %s' % os.path.dirname(final_path))
+                raise
+
+        with open(final_path, 'w') as f:
+            f.write(srt)
+        return final_path
     
     def __get_url(self, url):
         try:
@@ -151,7 +153,6 @@ class SRT_Scraper():
             req.add_header('Referer', BASE_URL)
             response = urllib2.urlopen(req, timeout=10)
             body=response.read()
-            body = body.encode('utf-8')
             parser = HTMLParser.HTMLParser()
             body = parser.unescape(body)
         except Exception as e:
@@ -180,7 +181,7 @@ class SRT_Scraper():
         req.add_header('Referer', BASE_URL)
         try:
             body = self.__http_get_with_retry(url, req)
-            body = body.encode('utf-8')
+            body = body.decode('utf-8')
             parser = HTMLParser.HTMLParser()
             body = parser.unescape(body)
         except Exception as e:
