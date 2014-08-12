@@ -11,6 +11,7 @@ import xbmcplugin
 from addon.common.addon import Addon
 from db_utils import DB_Connection
 from pw_scraper import PW_Scraper
+from srt_scraper import SRT_Scraper
 # from functools import wraps
 
 db_connection = DB_Connection()
@@ -235,6 +236,45 @@ def format_episode_label(title, season, episode, srts):
 
 def srt_indicators_enabled():
     return (_1CH.get_setting('enable-subtitles')=='true' and (_1CH.get_setting('subtitle-indicator')=='true'))
+
+def srt_download_enabled():
+    return (_1CH.get_setting('enable-subtitles')=='true' and (_1CH.get_setting('subtitle-download')=='true'))
+
+def download_subtitles(language, title, year, season, episode):
+    srt_scraper=SRT_Scraper()
+    tvshow_id=srt_scraper.get_tvshow_id(title, year)
+    if tvshow_id is None:
+        return
+    
+    subs=srt_scraper.get_episode_subtitles(language, tvshow_id, season, episode)
+    sub_labels=[]
+    for sub in subs:
+        sub_labels.append(format_sub_label(sub))
+    
+    index=0
+    if len(sub_labels)>1:
+        dialog = xbmcgui.Dialog()       
+        index = dialog.select('Choose a subtitle to download', sub_labels)
+        
+    if index > -1:
+        srt_scraper.download_subtitle(subs[index]['url'])
+    
+def format_sub_label(sub):
+        label = '%s - [%s] - (' % (sub['language'], sub['version'])
+        if sub['completed']:
+            color='green'
+        else:
+            label += '%s%% Complete, ' % (sub['percent'])
+            color='yellow'
+        if sub['hi']: label += 'HI, '
+        if sub['corrected']: label += 'Corrected, '
+        if sub['hd']: label += 'HD, '
+        if not label.endswith('('):
+            label = label[:-2] + ')'
+        else:
+            label = label[:-4]
+        label='[COLOR %s]%s[/COLOR]' % (color, label)
+        return label
 
 def has_upgraded():
     old_version = _1CH.get_setting('old_version').split('.')

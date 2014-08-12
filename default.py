@@ -120,7 +120,7 @@ def get_sources(url, title, year='', img='', imdbnum='', dialog=None, respect_au
     resume = False
     if db_connection.bookmark_exists(url):
         resume = utils.get_resume_choice(url)
-
+    
     pattern = r'tv-\d{1,10}-(.*)/season-(\d{1,4})-episode-(\d{1,4})'
     match = re.search(pattern, url, re.IGNORECASE | re.DOTALL)
     if match:
@@ -131,6 +131,9 @@ def get_sources(url, title, year='', img='', imdbnum='', dialog=None, respect_au
         video_type = 'movie'
         season = ''
         episode = ''
+
+    if video_type == 'episode' and utils.srt_download_enabled():
+        utils.download_subtitles(_1CH.get_setting('subtitle-lang'), title, year, season, episode)
 
     if META_ON and video_type == 'movie' and not imdbnum:
         imdbnum=pw_scraper.get_last_imdbnum()
@@ -555,10 +558,6 @@ def AddonMenu():  # homescreen
 @pw_dispatcher.register(MODES.LIST_MENU, ['section'])
 def BrowseListMenu(section):
     _1CH.log('Browse Options')
-    srt_scraper = SRT_Scraper()
-    tvshow_id=srt_scraper.get_tvshow_id('The Leftovers', '2014')
-    subtitles=srt_scraper.get_episode_subtitles('', tvshow_id, 1, 0)
-    print srt_scraper.download_subtitle(subtitles[0]['url'])
     
     _1CH.add_directory({'mode': MODES.AZ_MENU, 'section': section}, {'title': 'A-Z'}, img=art('atoz.png'),
                        fanart=art('fanart.png'))
