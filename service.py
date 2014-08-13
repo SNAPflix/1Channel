@@ -55,6 +55,7 @@ class Service(xbmc.Player):
         win.clearProperty('1ch.playing.season')
         win.clearProperty('1ch.playing.episode')
         win.clearProperty('1ch.playing.url')
+        win.clearProperty('1ch.playing.srt')
 
         self._totalTime = 999999
         self._lastPos = 0
@@ -79,6 +80,10 @@ class Service(xbmc.Player):
             if not 'season'  in self.meta: self.meta['season']  = ''
             if not 'episode' in self.meta: self.meta['episode'] = ''
             self.primewire_url = self.win.getProperty('1ch.playing.url')
+            srt_path = self.win.getProperty('1ch.playing.srt')
+            if srt_path:
+                xbmc.log('1Channel: Service: Enabling subtitles: %s' % (srt_path))
+                self.setSubtitles(srt_path)
 
             self._totalTime=0
             while self._totalTime == 0:

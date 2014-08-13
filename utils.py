@@ -37,7 +37,7 @@ MODES = enum(SAVE_FAV='SaveFav', DEL_FAV='DeleteFav', GET_SOURCES='GetSources', 
                    MOVIE_UPDATE='movie_update', SELECT_SOURCES='SelectSources', REFRESH_META='refresh_meta', META_SETTINGS='9988', RES_SETTINGS='ResolverSettings',
                    TOGGLE_X_FAVS='toggle_xbmc_fav', PLAYLISTS_MENU='playlists_menu', BROWSE_PLAYLISTS='get_playlists', SHOW_PLAYLIST='show_playlist', PL_PAGE_SELECT='PLPageSelect',
                    RM_FROM_PL='remove_from_playlist', ADD2PL='add_to_playlist', BROWSE_TW_WEB='browse_towatch_website', CH_TOWATCH_WEB='change_towatch_website',
-                   CH_WATCH_WEB='change_watched_website', MAN_UPD_TOWATCH='man_update_towatch', RESET_DB='reset_db')
+                   CH_WATCH_WEB='change_watched_website', MAN_UPD_TOWATCH='man_update_towatch', RESET_DB='reset_db', EDIT_TVSHOW_ID='edit_tvshow_id')
 
 SUB_TYPES  = enum(PW_PL=0)
 
@@ -240,6 +240,9 @@ def srt_indicators_enabled():
 def srt_download_enabled():
     return (_1CH.get_setting('enable-subtitles')=='true' and (_1CH.get_setting('subtitle-download')=='true'))
 
+def srt_show_enabled():
+    return (_1CH.get_setting('enable-subtitles')=='true' and (_1CH.get_setting('subtitle-show')=='true'))
+
 def download_subtitles(language, title, year, season, episode):
     srt_scraper=SRT_Scraper()
     tvshow_id=srt_scraper.get_tvshow_id(title, year)
@@ -257,7 +260,7 @@ def download_subtitles(language, title, year, season, episode):
         index = dialog.select('Choose a subtitle to download', sub_labels)
         
     if index > -1:
-        srt_scraper.download_subtitle(subs[index]['url'])
+        return srt_scraper.download_subtitle(subs[index]['url'])
     
 def format_sub_label(sub):
         label = '%s - [%s] - (' % (sub['language'], sub['version'])
