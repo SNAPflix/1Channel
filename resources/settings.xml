@@ -63,8 +63,8 @@
     	<setting id="subtitle-hi" type="bool" label="Require Hearing Impaired" default="false" enable="eq(-3,true)"/>
     	<setting id="subtitle-hd" type="bool" label="Require HD" default="false" enable="eq(-4,true)"/>
     	<setting id="subtitle-download" type="bool" label="Download Subtitles on playback" default="true" enable="eq(-5,true)"/>
-        <setting id="subtitle-folder" type="folder" label="Subtitle Download Folder" default="special://userdata/addon_data/plugin.video.1channel/Subtitles" enable="eq(-1,true)"/>
-        <setting id="subtitle-show" type="bool" label="Show Subtitles on Playback" default="false" enable="eq(-2,true)"/>
+        <setting id="subtitle-folder" type="folder" label="Subtitle Download Folder" default="special://userdata/addon_data/plugin.video.1channel/Subtitles" enable="eq(-1,true)+eq(-6,true)"/>
+        <setting id="subtitle-show" type="bool" label="Show Subtitles on Playback" default="false" enable="eq(-2,true)+eq(-7,true)"/>
     </category>
     
     <category label="Performance">
