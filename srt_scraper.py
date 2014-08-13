@@ -24,6 +24,7 @@ import socket
 import xbmc
 import xbmcvfs
 from addon.common.addon import Addon
+from db_utils import DB_Connection
 import utils
 
 _1CH = Addon('plugin.video.1channel')
@@ -36,6 +37,7 @@ USER_AGENT = ("User-Agent:Mozilla/5.0 (Windows NT 6.2; WOW64)"
               "Chrome/24.0.1312.56")
 BASE_URL='http://www.addic7ed.com'
 BASE_PATH=_1CH.get_setting('subtitle-folder')
+db_connection = DB_Connection()
 
 class SRT_Scraper():
     def __init__(self):
@@ -43,6 +45,11 @@ class SRT_Scraper():
     
     def get_tvshow_id(self, title, year=None):
         match_title=title.lower()
+        tvshow_id=db_connection.get_tvshow_id(title, year)
+        if tvshow_id:
+            _1CH.log('Returning local tvshow id: |%s|%s|%s|' % (title, year, tvshow_id))
+            return tvshow_id
+        
         html=self.__get_cached_url(BASE_URL, 24)
         regex=re.compile('option\s+value="(\d+)"\s*>(.*?)</option')
         site_matches=[]
@@ -59,6 +66,7 @@ class SRT_Scraper():
             #print 'show: |%s|%s|%s|' % (tvshow_id, site_title, site_year)
             if match_title == site_title.lower():
                 if year is None or year==site_year:
+                    db_connection.set_tvshow_id(title, year, tvshow_id)
                     return tvshow_id
                 
                 site_matches.append((tvshow_id, site_title, site_year))
@@ -66,12 +74,14 @@ class SRT_Scraper():
         if not site_matches:
             return None
         elif len(site_matches)==1:
+            db_connection.set_tvshow_id(title, year, site_matches[0][0])
             return site_matches[0][0]
         else:
             # there were multiple title matches and year was passed but no exact year matches found
             for match in site_matches:
                 # return the match that has no year specified 
                 if match[2] is None:
+                    db_connection.set_tvshow_id(title, year, match[0])
                     return match[0]
             
     def get_season_subtitles(self, language, tvshow_id, season):

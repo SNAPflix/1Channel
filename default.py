@@ -133,7 +133,11 @@ def get_sources(url, title, year='', img='', imdbnum='', dialog=None, respect_au
         episode = ''
 
     if video_type == 'episode' and utils.srt_download_enabled():
-        utils.download_subtitles(_1CH.get_setting('subtitle-lang'), title, year, season, episode)
+        srt_path = utils.download_subtitles(_1CH.get_setting('subtitle-lang'), title, year, season, episode)
+        if utils.srt_show_enabled() and srt_path:
+            _1CH.log('Setting srt path: %s' % (srt_path))
+            win = xbmcgui.Window(10000)
+            win.setProperty('1ch.playing.srt', srt_path)
 
     if META_ON and video_type == 'movie' and not imdbnum:
         imdbnum=pw_scraper.get_last_imdbnum()
@@ -928,6 +932,11 @@ def build_listitem(section_params, title, year, img, resurl, imdbnum='', season=
             queries['episode'] = episode
         runstring = 'RunPlugin(%s)' % _1CH.build_plugin_url(queries)
         menu_items.append((label, runstring,))
+        
+        if section_params['video_type']=='tvshow' and _1CH.get_setting('enable-subtitles')=='true':
+            queries = {'mode': MODES.EDIT_TVSHOW_ID, 'title': title, 'year': year}
+            runstring = 'RunPlugin(%s)' % _1CH.build_plugin_url(queries)
+            menu_items.append(('Set TVShow ID', runstring,))
 
         fanart = ''
         if FANART_ON:
@@ -1783,6 +1792,18 @@ def toggle_xbmc_fav(title, url, img, action, is_playable=False):
          
     xbmc.executebuiltin('Container.Refresh')
         
+@pw_dispatcher.register(MODES.EDIT_TVSHOW_ID, ['title'], ['year'])
+def edit_tvshow_id(title, year=''):
+    srt_scraper=SRT_Scraper()
+    tvshow_id=srt_scraper.get_tvshow_id(title, year)
+    keyboard = xbmc.Keyboard()
+    keyboard.setHeading('Input TVShow ID')
+    if tvshow_id:
+        keyboard.setDefault(str(tvshow_id))
+    keyboard.doModal()
+    if keyboard.isConfirmed():
+        db_connection.set_tvshow_id(title, year, keyboard.getText())
+
 def main(argv=None):
     if sys.argv: argv=sys.argv
 

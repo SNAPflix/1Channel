@@ -221,6 +221,18 @@ class DB_Connection():
         season_html=self.__execute(sql, (season_num,))[0][0]
         return season_html
     
+    def set_tvshow_id(self, title, year, tvshow_id):
+        sql = 'REPLACE INTO tvshow_rel (title, year, tvshow_Id) VALUES (?, ?, ?)'
+        self.__execute(sql, (title, year, tvshow_id))
+    
+    def get_tvshow_id(self, title, year):
+        sql = "SELECT tvshow_id FROM tvshow_rel WHERE title=? and year=?"
+        rows=self.__execute(sql, (title, year))
+        if rows:
+            return rows[0][0]
+        else:
+            return None
+    
     def export_from_db(self, full_path):
         with open(full_path, 'w') as f:
             writer=csv.writer(f)
@@ -298,10 +310,12 @@ class DB_Connection():
             self.__execute('CREATE TABLE IF NOT EXISTS db_info (setting TEXT, value TEXT)')
             self.__execute('CREATE TABLE IF NOT EXISTS new_bkmark (url TEXT PRIMARY KEY NOT NULL, resumepoint DOUBLE NOT NULL)')
             self.__execute('CREATE TABLE IF NOT EXISTS external_subs (type INTEGER NOT NULL, url TEXT NOT NULL, imdbnum TEXT, days VARCHAR(7), PRIMARY KEY (type, url))')
+            self.__execute('CREATE TABLE IF NOT EXISTS  tvshow_rel (title TEXT, year VARCHAR(4), tvshow_id INTEGER NOT NULL, PRIMARY KEY(tvshow_id))')
             self.__execute('CREATE UNIQUE INDEX IF NOT EXISTS unique_fav ON favorites (url)')
             self.__execute('CREATE UNIQUE INDEX IF NOT EXISTS unique_sub ON subscriptions (url)')
             self.__execute('CREATE UNIQUE INDEX IF NOT EXISTS unique_url ON url_cache (url)')
             self.__execute('CREATE UNIQUE INDEX IF NOT EXISTS unique_db_info ON db_info (setting)') 
+            self.__execute('CREATE UNIQUE INDEX IF NOT EXISTS unique_tvshow_rel ON tvshow_rel (title, year)') 
         
         # reload the previously saved backup export
         if db_version is not None and cur_version !=  db_version:
