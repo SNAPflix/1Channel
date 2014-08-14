@@ -882,7 +882,7 @@ def build_listitem(section_params, title, year, img, resurl, liz_url, imdbnum=''
             queries={'mode': MODES.ADD_MENU, 'video_type': section_params['video_type'], 'title': title, 'url': resurl, 'liz_url': liz_url, 'img': img, 'year': year, 'playable': not section_params['folder']}
             runstring = 'RunPlugin(%s)' % _1CH.build_plugin_url(queries)
             menu_items.append(('Add To...', runstring),)
-            queries={'mode': MODES.REMOVE_MENU, 'section': section_params['section'], 'title': title, 'url': resurl, 'year': year}
+            queries={'mode': MODES.REMOVE_MENU, 'video_type': section_params['video_type'], 'title': title, 'url': resurl, 'liz_url': liz_url, 'img': img, 'playable': not section_params['folder']}
             runstring = 'RunPlugin(%s)' % _1CH.build_plugin_url(queries)
             menu_items.append(('Remove From...', runstring),)
 
@@ -1790,25 +1790,64 @@ def edit_tvshow_id(title, year=''):
 
 @pw_dispatcher.register(MODES.ADD_MENU, ['video_type', 'title', 'url', 'liz_url', 'img', 'playable'], ['year'])
 def add_menu(video_type, title, url, liz_url, img, playable, year=''):
-    add_list = ('XBMC Favorites', 'PrimeWire Favorites', 'PrimeWire ToWatch List', 'PrimeWire Watched List', 'Website Playlist', 'Library')
+    if video_type=='tvshow': section='tv' 
+    else: section='movies'
+    
     action_list = (
-                   'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.TOGGLE_X_FAVS, 'title': title, 'url': liz_url, 'img': img, 'is_playable': playable, 'action': FAV_ACTIONS.ADD}),
-                   'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.SAVE_FAV, 'fav_type': video_type, 'title': title, 'url': url, 'year': year}),
-                   'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.CH_TOWATCH_WEB, 'primewire_url': url, 'action':'add', 'refresh':True}),
-                   'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.CH_WATCH_WEB, 'primewire_url': url,'action':'add', 'refresh':True}),
-                   'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.ADD2PL, 'item_url': url}),
-                   'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.ADD2LIB, 'video_type': video_type, 'title': title, 'img': img, 'year': year,'url': url})
+                   ('XBMC Favorites', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.TOGGLE_X_FAVS, 'title': title, 'url': liz_url, 'img': img, 'is_playable': playable, 'action': FAV_ACTIONS.ADD})),
+                   ('PrimeWire Favorites', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.SAVE_FAV, 'fav_type': video_type, 'title': title, 'url': url, 'year': year})),
+                   ('PrimeWire ToWatch List', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.CH_TOWATCH_WEB, 'primewire_url': url, 'action':'add', 'refresh':True})),
+                   ('PrimeWire Watched List', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.CH_WATCH_WEB, 'primewire_url': url,'action':'add', 'refresh':True})),
+                   ('PrimeWire Playlist', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.ADD2PL, 'item_url': url})),
+                   ('Library', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.ADD2LIB, 'video_type': video_type, 'title': title, 'img': img, 'year': year,'url': url}))
                    )
+    
+    menu_list = []
+    if not utils.in_xbmc_favs(liz_url, utils.get_xbmc_fav_urls()): menu_list.append(action_list[0])
+    if url not in utils.get_fav_urls(section): menu_list.append(action_list[1])
+    
+    url_list = [item['url'] for item in pw_scraper.get_towatch(section)]
+    if url not in url_list: menu_list.append(action_list[2])
+
+    url_list = [item['url'] for item in pw_scraper.get_watched(section)]
+    if url not in url_list: menu_list.append(action_list[3])
+    
+    menu_list.append(action_list[4])
+    menu_list.append(action_list[5])
+    
     dialog = xbmcgui.Dialog()       
-    index = dialog.select('Add To...', add_list)
+    index = dialog.select('Add To...', [item[0] for item in menu_list])
     
     if index>-1:
-        print action_list[index]
-        xbmc.executebuiltin(action_list[index])
+        xbmc.executebuiltin(menu_list[index][1])
 
-@pw_dispatcher.register(MODES.REMOVE_MENU)
-def remove_menu():
-    pass
+@pw_dispatcher.register(MODES.REMOVE_MENU, ['video_type', 'title', 'url', 'liz_url', 'img', 'playable'])
+def remove_menu(video_type, title, url, liz_url, img, playable):
+    if video_type=='tvshow': section='tv' 
+    else: section='movies'
+    
+    action_list = (
+                   ('XBMC Favorites', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.TOGGLE_X_FAVS, 'title': title, 'url': liz_url, 'img': img, 'is_playable': playable, 'action': FAV_ACTIONS.REMOVE})),
+                   ('PrimeWire Favorites', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.DEL_FAV, 'url': url})),
+                   ('PrimeWire ToWatch List', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.CH_TOWATCH_WEB, 'primewire_url': url, 'action':'delete', 'refresh':True})),
+                   ('PrimeWire Watched List', 'RunPlugin(%s)' % _1CH.build_plugin_url({'mode': MODES.CH_WATCH_WEB, 'primewire_url': url,'action':'delete', 'refresh':True}))
+                   )
+    
+    menu_list = []
+    if utils.in_xbmc_favs(liz_url, utils.get_xbmc_fav_urls()): menu_list.append(action_list[0])
+    if url in utils.get_fav_urls(section): menu_list.append(action_list[1])
+    
+    url_list = [item['url'] for item in pw_scraper.get_towatch(section)]
+    if url in url_list: menu_list.append(action_list[2])
+
+    url_list = [item['url'] for item in pw_scraper.get_watched(section)]
+    if url in url_list: menu_list.append(action_list[3])
+    
+    dialog = xbmcgui.Dialog()       
+    index = dialog.select('Remove From...', [item[0] for item in menu_list])
+    
+    if index>-1:
+        xbmc.executebuiltin(menu_list[index][1])
 
 def main(argv=None):
     if sys.argv: argv=sys.argv
