@@ -891,7 +891,7 @@ def build_listitem(section_params, title, year, img, resurl, liz_url, imdbnum=''
             meta = __metaget__.get_episode_meta(title, imdbnum, season, episode)
             meta['TVShowTitle'] = title
         else:
-            meta = create_meta(section_params['video_type'], title, year, img)
+            meta = create_meta(section_params['video_type'], title, year)
 
         menu_items.append(('Show Information', 'XBMC.Action(Info)'), )
 
@@ -1292,7 +1292,7 @@ def browse_towatch_website(section, page=None):
         
     xbmcplugin.endOfDirectory(int(sys.argv[1]), cacheToDisc=_1CH.get_setting('dir-cache')=='true')
 
-def create_meta(video_type, title, year, thumb):
+def create_meta(video_type, title, year):
     _1CH.log_debug('Calling Create Meta: %s, %s, %s' % (video_type, title, year))
     try:
         year = int(year)
@@ -1531,7 +1531,7 @@ def manage_subscriptions():
         else:
             _1CH.log('Ignoring subscription days format because %s is missing')
             
-        meta = create_meta('tvshow', title, year, '')
+        meta = create_meta('tvshow', title, year)
         meta['title'] = utils.format_label_sub(meta)
 
         menu_items = add_contextsearchmenu(meta['title'], 'tv')
