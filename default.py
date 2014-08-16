@@ -1324,7 +1324,7 @@ def make_art(video_type, meta, pw_img):
     if POSTERS_FALLBACK and meta['cover_url'] in ('/images/noposter.jpg', ''):
         art['thumb']=pw_img
         art['poster']=pw_img
-            
+
     if FANART_ON: art['fanart']=meta['backdrop_url']
     if 'banner_url' in meta: art['banner']=meta['banner_url']
     return art
