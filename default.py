@@ -893,9 +893,6 @@ def build_listitem(section_params, title, year, img, resurl, liz_url, imdbnum=''
         else:
             meta = create_meta(section_params['video_type'], title, year, img)
 
-        if 'cover_url' in meta:
-            img = meta['cover_url']
-
         menu_items.append(('Show Information', 'XBMC.Action(Info)'), )
 
         queries = {'mode': MODES.REFRESH_META, 'video_type': section_params['video_type'], 'title': meta['title'], 'imdbnum': meta['imdb_id'],
@@ -931,13 +928,6 @@ def build_listitem(section_params, title, year, img, resurl, liz_url, imdbnum=''
             runstring = 'RunPlugin(%s)' % _1CH.build_plugin_url(queries)
             menu_items.append(('Set TVShow ID', runstring,))
 
-        fanart = ''
-        if FANART_ON:
-            try:
-                fanart = meta['backdrop_url']
-            except:
-                fanart = ''
-
         if section_params['video_type'] == 'tvshow':
             if resurl in section_params['subs']:
                 meta['title'] = utils.format_label_sub(meta)
@@ -958,17 +948,18 @@ def build_listitem(section_params, title, year, img, resurl, liz_url, imdbnum=''
                 srts=[]
             meta['title']=utils.format_episode_label(meta['title'], season, episode, srts)
 
-        listitem = xbmcgui.ListItem(meta['title'], iconImage=img,
-                                    thumbnailImage=img)
+        art=make_art(section_params['video_type'], meta, img)
+        listitem=xbmcgui.ListItem(meta['title'], iconImage=art['thumb'], thumbnailImage=art['thumb'])
+        listitem.setProperty('fanart_image', art['fanart'])
+        try: listitem.setArt(art)
+        except: pass # method doesn't exist in Frodo
         listitem.setInfo('video', meta)
-        listitem.setProperty('fanart_image', fanart)
         listitem.setProperty('imdb', meta['imdb_id'])
         listitem.setProperty('img', img)
     else:  # Metadata off
         if section_params['video_type'] == 'episode':
             disp_title = '%sx%s' % (season, episode)
-            listitem = xbmcgui.ListItem(disp_title, iconImage=img,
-                                        thumbnailImage=img)
+            listitem = xbmcgui.ListItem(disp_title, iconImage=img,thumbnailImage=img)
         else:
             if year:
                 disp_title = '%s (%s)' % (title, year)
@@ -1302,12 +1293,13 @@ def browse_towatch_website(section, page=None):
     xbmcplugin.endOfDirectory(int(sys.argv[1]), cacheToDisc=_1CH.get_setting('dir-cache')=='true')
 
 def create_meta(video_type, title, year, thumb):
-    print 'Calling Create Meta: %s, %s, %s' % (video_type, title, year)
+    _1CH.log_debug('Calling Create Meta: %s, %s, %s' % (video_type, title, year))
     try:
         year = int(year)
     except:
         year = 0
     year = str(year)
+    
     meta = {'title': title, 'year': year, 'imdb_id': '', 'overlay': ''}
     if META_ON:
         try:
@@ -1319,15 +1311,23 @@ def create_meta(video_type, title, year, thumb):
             else:  # movie
                 meta = __metaget__.get_meta(video_type, title, year=year)
                 _ = meta['tmdb_id']
-
-            if video_type == 'tvshow' and not USE_POSTERS:
-                meta['cover_url'] = meta['banner_url']
-            if POSTERS_FALLBACK and meta['cover_url'] in ('/images/noposter.jpg', ''):
-                meta['cover_url'] = thumb
         except:
             try: _1CH.log('Error assigning meta data for %s %s %s' % (video_type, title, year))
             except: pass
     return meta
+
+def make_art(video_type, meta, pw_img):
+    _1CH.log_debug('Making Art: %s, %s, %s' % (video_type, meta, pw_img))
+    art={'thumb': '', 'poster': '', 'fanart': '', 'banner': ''}
+    art['thumb']=meta['cover_url']
+    art['poster']=meta['cover_url']
+    if POSTERS_FALLBACK and meta['cover_url'] in ('/images/noposter.jpg', ''):
+        art['thumb']=pw_img
+        art['poster']=pw_img
+            
+    if FANART_ON: art['fanart']=meta['backdrop_url']
+    if 'banner_url' in meta: art['banner']=meta['banner_url']
+    return art
 
 def repair_missing_images():
     _1CH.log("Repairing Metadata Images")
