@@ -177,7 +177,7 @@ class SRT_Scraper():
         _1CH.log('Fetching Cached URL: %s' % url)
         before = time.time()
         
-        html = utils.get_cached_url(url, cache)
+        html = db_connection.get_cached_url(url, cache)
         if html:
             _1CH.log_debug('Returning cached result for: %s' % (url))
             return html
@@ -200,7 +200,7 @@ class SRT_Scraper():
             _1CH.log('Failed to connect to URL %s: (%s)' % (url, e))
             return ''
         
-        utils.cache_url(url, body)
+        db_connection.cache_url(url, body)
         after = time.time()
         _1CH.log_debug('Cached Url Fetch took: %.2f secs' % (after - before))
         return body
