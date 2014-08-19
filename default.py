@@ -42,6 +42,7 @@ from pw_dispatcher import PW_Dispatcher
 from srt_scraper import SRT_Scraper
 from utils import MODES
 from utils import SUB_TYPES
+import gui_utils
 
 global urlresolver
 
@@ -83,7 +84,7 @@ def art(name):
 @pw_dispatcher.register(MODES.SAVE_FAV, ['fav_type', 'title', 'url'], ['year'])
 def save_favorite(fav_type, title, url, year=''):
     if fav_type != 'tv': fav_type = 'movie'
-    _1CH.log('Saving Favorite type: %s name: %s url: %s year: %s' % (fav_type, title, url, year))
+    utils.log('Saving Favorite type: %s name: %s url: %s year: %s' % (fav_type, title, url, year))
     
     try:
         if utils.website_is_integrated():
@@ -99,7 +100,7 @@ def save_favorite(fav_type, title, url, year=''):
 
 @pw_dispatcher.register(MODES.DEL_FAV, ['url'])
 def delete_favorite(url):
-    _1CH.log('Deleting Favorite: %s' % (url))
+    utils.log('Deleting Favorite: %s' % (url))
     
     if utils.website_is_integrated():
         pw_scraper.delete_favorite(url)
@@ -109,18 +110,42 @@ def delete_favorite(url):
     xbmc.executebuiltin(builtin % ICON_PATH)
     xbmc.executebuiltin('Container.Refresh')
 
+# returns true if user chooses to resume, else false
+def get_resume_choice(url):
+    question = 'Resume from %s' % (utils.format_time(db_connection.get_bookmark(url)))
+    return xbmcgui.Dialog().yesno('Resume?', question, '', '', 'Start from beginning', 'Resume')==1
+
+def download_subtitles(language, title, year, season, episode):
+    srt_scraper=SRT_Scraper()
+    tvshow_id=srt_scraper.get_tvshow_id(title, year)
+    if tvshow_id is None:
+        return
+     
+    subs=srt_scraper.get_episode_subtitles(language, tvshow_id, season, episode)
+    sub_labels=[]
+    for sub in subs:
+        sub_labels.append(utils.format_sub_label(sub))
+     
+    index=0
+    if len(sub_labels)>1:
+        dialog = xbmcgui.Dialog()       
+        index = dialog.select('Choose a subtitle to download', sub_labels)
+         
+    if index > -1:
+        return srt_scraper.download_subtitle(subs[index]['url'])
+    
 @pw_dispatcher.register(MODES.GET_SOURCES, ['url', 'title'], ['year', 'img', 'imdbnum', 'dialog'])
 def get_sources(url, title, year='', img='', imdbnum='', dialog=None, respect_auto=True):
     url = urllib.unquote(url)
-    _1CH.log('Getting sources from: %s' % url)
+    utils.log('Getting sources from: %s' % url)
     primewire_url = url
     
     dbid=xbmc.getInfoLabel('ListItem.DBID')
     
     resume = False
     if db_connection.bookmark_exists(url):
-        resume = utils.get_resume_choice(url)
-    
+        resume = get_resume_choice(url)
+
     pattern = r'tv-\d{1,10}-(.*)/season-(\d{1,4})-episode-(\d{1,4})'
     match = re.search(pattern, url, re.IGNORECASE | re.DOTALL)
     if match:
@@ -133,7 +158,7 @@ def get_sources(url, title, year='', img='', imdbnum='', dialog=None, respect_au
         episode = ''
 
     if video_type == 'episode' and utils.srt_download_enabled():
-        srt_path = utils.download_subtitles(_1CH.get_setting('subtitle-lang'), title, year, season, episode)
+        srt_path = download_subtitles(_1CH.get_setting('subtitle-lang'), title, year, season, episode)
         if utils.srt_show_enabled() and srt_path:
             _1CH.log('Setting srt path: %s' % (srt_path))
             win = xbmcgui.Window(10000)
@@ -188,7 +213,7 @@ def play_filtered_dialog(hosters, title, img, year, imdbnum, video_type, season,
                     sources.append(hosted_media)
                     partnum += 1
         except:
-            _1CH.log('Error while trying to resolve %s' % item['url'])
+            utils.log('Error while trying to resolve %s' % item['url'], xbmc.LOGERROR)
     
     source = urlresolver.choose_source(sources)
     if source:
@@ -214,7 +239,7 @@ def play_unfiltered_dialog(hosters, title, img, year, imdbnum, video_type, seaso
 def play_filtered_dir(hosters, title, img, year, imdbnum, video_type, season, episode, primewire_url, resume):
     hosters_len = len(hosters)        
     for item in hosters:
-        #_1CH.log(item)
+        #utils.log(item)
         hosted_media = urlresolver.HostedMediaFile(url=item['url'])
         if hosted_media:
             label = utils.format_label_source(item)
@@ -233,14 +258,14 @@ def play_filtered_dir(hosters, title, img, year, imdbnum, video_type, season, ep
                                        infolabels={'title': label}, properties={'resumeTime': str(0), 'totalTime': str(1)}, is_folder=False, img=img,
                                        fanart=art('fanart.png'), total_items=hosters_len)
         else:
-            _1CH.log('Skipping unresolvable source: %s' % (item['url']))
+            utils.log('Skipping unresolvable source: %s' % (item['url']), xbmc.LOGWARNING)
      
     _1CH.end_of_directory()
 
 def play_unfiltered_dir(hosters, title, img, year, imdbnum, video_type, season, episode, primewire_url, resume):
     hosters_len=len(hosters)
     for item in hosters:
-        #_1CH.log(item)
+        #utils.log(item)
         label = utils.format_label_source(item)
         _1CH.add_directory({'mode': MODES.PLAY_SOURCE, 'url': item['url'], 'title': title,
                             'img': img, 'year': year, 'imdbnum': imdbnum,
@@ -272,23 +297,23 @@ def auto_try_sources(hosters, title, img, year, imdbnum, video_type, season, epi
             percent = int((count * 100) / total)
             label = utils.format_label_source(source)
             dlg.update(percent, '', line1 + label)
-            _1CH.log('Trying Source: %s' % (source['host']))
+            utils.log('Trying Source: %s' % (source['host']), xbmc.LOGDEBUG)
             if not PlaySource(source['url'], title, imdbnum, video_type, primewire_url, resume, year, season, episode, dbid): 
                 dlg.update(percent, 'Playback Failed: %s' % (label), line1 + label)
-                _1CH.log('Source Failed: %s' % (source['host']))
+                utils.log('Source Failed: %s' % (source['host']), xbmc.LOGWARNING)
                 count += 1
             else:
                 success = True
                 break  # Playback was successful, break out of the loop
         else:
-            _1CH.log('All sources failed to play')
+            utils.log('All sources failed to play', xbmc.LOGERROR)
             dlg.close()
             _1CH.show_ok_dialog(['All Sources Failed to Play'], title='PrimeWire')
             break
 
 @pw_dispatcher.register(MODES.PLAY_SOURCE,  ['url', ' title', 'imdbnum', 'video_type', 'primewire_url', 'resume'], ['year', 'season', 'episode'])    
 def PlaySource(url, title, imdbnum, video_type, primewire_url, resume, year='', season='', episode='', dbid=None):
-    _1CH.log('Attempting to play url: %s' % url)
+    utils.log('Attempting to play url: %s' % url)
     stream_url = urlresolver.HostedMediaFile(url=url).resolve()
 
     #If urlresolver returns false then the video url was not resolved.
@@ -353,7 +378,7 @@ def PlaySource(url, title, imdbnum, video_type, primewire_url, resume, year='', 
     if resume: 
         resume_point = db_connection.get_bookmark(primewire_url)
         
-    _1CH.log("Playing Video from: %s secs"  % (resume_point))
+    utils.log("Playing Video from: %s secs"  % (resume_point), xbmc.LOGDEBUG)
     listitem.setProperty('ResumeTime', str(resume_point))
     listitem.setProperty('Totaltime', str(99999)) # dummy value to force resume to work
 
@@ -361,7 +386,7 @@ def PlaySource(url, title, imdbnum, video_type, primewire_url, resume, year='', 
     listitem.setInfo(type = "Video", infoLabels = meta)
     
     if _1CH.get_setting('enable-axel')=='true':
-        _1CH.log('Using Axel Downloader')
+        utils.log('Using Axel Downloader', xbmc.LOGDEBUG)
         try:
             download_name=title
             if season and episode: download_name += ' %sx%s' % (season,episode)
@@ -369,7 +394,7 @@ def PlaySource(url, title, imdbnum, video_type, primewire_url, resume, year='', 
             axelhelper =  proxy.ProxyHelper()
             stream_url, download_id = axelhelper.create_proxy_url(stream_url, name=download_name)
             win.setProperty('download_id', str(download_id))
-            _1CH.log('Axel Downloader: stream_url: %s, download_id: %s' % (stream_url, download_id))
+            utils.log('Axel Downloader: stream_url: %s, download_id: %s' % (stream_url, download_id), xbmc.LOGDEBUG)
         except:
             message='Axel [COLOR blue]ENABLED[/COLOR] but [COLOR red]NOT INSTALLED[/COLOR]'
             xbmc.executebuiltin("XBMC.Notification(%s,%s,10000, %s)" % ('Axel Downloader',message, ICON_PATH))
@@ -433,7 +458,7 @@ def change_towatch_website( primewire_url , action, refresh = True):
 def PlayTrailer(url):
     url = url.decode('base-64')
     url = 'http://www.youtube.com/watch?v=%s&hd=1' % (url)
-    _1CH.log('Attempting to resolve and play trailer at %s' % url)
+    utils.log('Attempting to resolve and play trailer at %s' % url)
     sources = []
     hosted_media = urlresolver.HostedMediaFile(url=url)
     sources.append(hosted_media)
@@ -468,7 +493,7 @@ def GetSearchQuery(section, next_mode):
             if search_text == '!#repair meta': repair_missing_images()
             if search_text == '!#install all meta': metapacks.install_all_meta()
             if search_text.startswith('!#sql:'):
-                _1CH.log('Running SQL: |%s|' % (search_text[6:]))
+                utils.log('Running SQL: |%s|' % (search_text[6:]), xbmc.LOGDEBUG)
                 db_connection.execute_sql(search_text[6:])
         else:
             queries = {'mode': next_mode, 'section': section, 'query': keyboard.getText()}
@@ -481,7 +506,7 @@ def GetSearchQuery(section, next_mode):
 @pw_dispatcher.register(MODES.ADV_QUERY, ['section'])
 def GetSearchQueryAdvanced(section):
     try:
-        query=utils.get_adv_search_query(section)
+        query=gui_utils.get_adv_search_query(section)
         js_query=json.dumps(query)
         queries = {'mode': MODES.SEARCH_ADV, 'section': section, 'query': js_query}
         pluginurl = _1CH.build_plugin_url(queries)
@@ -539,10 +564,10 @@ def Search(mode, section, query, page=None):
 
 @pw_dispatcher.register(MODES.MAIN)
 def AddonMenu():  # homescreen
-    _1CH.log('Main Menu')
+    utils.log('Main Menu')
     db_connection.init_database()
     if utils.has_upgraded():
-        _1CH.log('Showing update popup')
+        utils.log('Showing update popup', xbmc.LOGDEBUG)
         utils.TextBox()
         adn = xbmcaddon.Addon('plugin.video.1channel')
         adn.setSetting('domain', 'http://www.primewire.ag')
@@ -561,8 +586,7 @@ def AddonMenu():  # homescreen
 
 @pw_dispatcher.register(MODES.LIST_MENU, ['section'])
 def BrowseListMenu(section):
-    _1CH.log('Browse Options')
-    
+    utils.log('Browse Options')
     _1CH.add_directory({'mode': MODES.AZ_MENU, 'section': section}, {'title': 'A-Z'}, img=art('atoz.png'),
                        fanart=art('fanart.png'))
     add_search_item({'mode': MODES.SEARCH_QUERY, 'section': section, 'next_mode': MODES.SEARCH}, 'Search')
@@ -600,7 +624,7 @@ def BrowseListMenu(section):
 
 @pw_dispatcher.register(MODES.PLAYLISTS_MENU)
 def playlist_menu():
-    _1CH.log('Playlist Menu')
+    utils.log('Playlist Menu')
     _1CH.add_directory({'mode': MODES.BROWSE_PLAYLISTS, 'public': True, 'sort': 'date'}, {'title': 'Public Playlists (sorted by date)'}, img=art('public_playlists_date.png'),
                        fanart=art('fanart.png'))
     _1CH.add_directory({'mode': MODES.BROWSE_PLAYLISTS, 'public': True, 'sort': 'rating'}, {'title': 'Public Playlists (sorted by rating)'}, img=art('public_playlists_rating.png'),
@@ -618,7 +642,7 @@ def playlist_menu():
 
 @pw_dispatcher.register(MODES.BROWSE_PLAYLISTS, ['public'], ['sort', 'page'])
 def browse_playlists(public,sort=None, page=None, paginate=True):
-    _1CH.log('Browse Playlists: public: |%s| sort: |%s| page: |%s| paginate: |%s|' % (public, sort, page, paginate))
+    utils.log('Browse Playlists: public: |%s| sort: |%s| page: |%s| paginate: |%s|' % (public, sort, page, paginate))
     playlists=pw_scraper.get_playlists(public, sort, page, paginate)
     total_pages = pw_scraper.get_last_res_pages()
     for playlist in playlists:
@@ -648,11 +672,11 @@ def show_playlist(url, public):
 
     # one playlist can contain both movies and tvshows so can't set the params for the whole playlist/section
     item_params={}
-    item_params['subs'] = [row[0] for row in utils.get_subscriptions()]
+    item_params['subs'] = [row[0] for row in get_subscriptions()]
     if utils.website_is_integrated():
         item_params['fav_urls']=[]
     else:
-        item_params['fav_urls']=utils.get_fav_urls()
+        item_params['fav_urls']=get_fav_urls()
     item_params['xbmc_fav_urls']=utils.get_xbmc_fav_urls()
     for item in items:
         item_params.update(get_item_params(item))
@@ -709,7 +733,7 @@ def add_search_item(queries, label):
 
 @pw_dispatcher.register(MODES.AZ_MENU, ['section'])
 def BrowseAlphabetMenu(section=None):
-    _1CH.log('Browse by alphabet screen')
+    utils.log('Browse by alphabet screen')
     _1CH.add_directory({'mode': MODES.FILTER_RESULTS, 'section': section, 'sort': 'alphabet', 'letter': '123'},
                        {'title': '#123'}, img=art('123.png'), fanart=art('fanart.png'))
     for character in (ltr for ltr in string.ascii_uppercase):
@@ -720,7 +744,7 @@ def BrowseAlphabetMenu(section=None):
 
 @pw_dispatcher.register(MODES.GENRE_MENU, ['section'])
 def BrowseByGenreMenu(section=None): #2000
-    _1CH.log('Browse by genres screen')
+    utils.log('Browse by genres screen')
     for genre in pw_scraper.get_genres():
         _1CH.add_directory({'mode': MODES.FILTER_RESULTS, 'section': section, 'sort': '', 'genre': genre},
                            {'title': genre}, img=art(genre.lower() + '.png'))
@@ -780,7 +804,7 @@ def get_section_params(section):
         section_params['nextmode'] = MODES.SEASON_LIST
         section_params['video_type'] = 'tvshow'
         section_params['folder'] = True
-        subscriptions = utils.get_subscriptions()
+        subscriptions = get_subscriptions()
         section_params['subs'] = [row[0] for row in subscriptions]
     elif section=='episode':
         section_params['nextmode'] = MODES.GET_SOURCES
@@ -799,13 +823,13 @@ def get_section_params(section):
     if utils.website_is_integrated():
         section_params['fav_urls']=[]
     else:
-        section_params['fav_urls']=utils.get_fav_urls(section)
+        section_params['fav_urls']=get_fav_urls(section)
     section_params['xbmc_fav_urls']=utils.get_xbmc_fav_urls()
 
     return section_params
 
 def create_item(section_params,title,year,img,url, imdbnum='', season='', episode = '', totalItems=0, menu_items=None):
-    #_1CH.log('Create Item: %s, %s, %s, %s, %s, %s, %s, %s, %s' % (section_params, title, year, img, url, imdbnum, season, episode, totalItems))
+    #utils.log('Create Item: %s, %s, %s, %s, %s, %s, %s, %s, %s' % (section_params, title, year, img, url, imdbnum, season, episode, totalItems))
     if menu_items is None: menu_items=[]
     if section_params['nextmode']==MODES.GET_SOURCES and _1CH.get_setting('auto-play')=='true':
         queries = {'mode': MODES.SELECT_SOURCES, 'title': title, 'url': url, 'img': img, 'imdbnum': imdbnum, 'video_type': section_params['video_type']}
@@ -975,7 +999,7 @@ def build_listitem(section_params, title, year, img, resurl, liz_url, imdbnum=''
 
 @pw_dispatcher.register(MODES.FILTER_RESULTS, ['section'], ['genre', 'letter', 'sort', 'page'])
 def GetFilteredResults(section, genre='', letter='', sort='alphabet', page=None, paginate=None):
-    _1CH.log('Filtered results for Section: %s Genre: %s Letter: %s Sort: %s Page: %s Paginate: %s' % (section, genre, letter, sort, page, paginate))
+    utils.log('Filtered results for Section: %s Genre: %s Letter: %s Sort: %s Page: %s Paginate: %s' % (section, genre, letter, sort, page, paginate))
     if paginate is None: paginate=(_1CH.get_setting('paginate-lists')=='true' and _1CH.get_setting('paginate')=='true')
     section_params = get_section_params(section)
     results = pw_scraper.get_filtered_results(section, genre, letter, sort, page, paginate)
@@ -1027,7 +1051,7 @@ def GetFilteredResults(section, genre='', letter='', sort='alphabet', page=None,
 
 @pw_dispatcher.register(MODES.SEASON_LIST, ['url', 'title'], ['year', 'tvdbnum'])
 def TVShowSeasonList(url, title, year='', old_imdb='', tvdbnum=''):
-    _1CH.log('Seasons for TV Show %s' % url)
+    utils.log('Seasons for TV Show %s' % url)
     season_gen=pw_scraper.get_season_list(url)
     seasons = list(season_gen) # copy the generator into a list so that we can iterate over it multiple times
     new_imdbnum = pw_scraper.get_last_imdbnum()
@@ -1035,15 +1059,12 @@ def TVShowSeasonList(url, title, year='', old_imdb='', tvdbnum=''):
     imdbnum = old_imdb
     if META_ON:
         if not old_imdb and new_imdbnum:
-            try: _1CH.log('Imdb ID not recieved from title search, updating with new id of %s' % new_imdbnum)
-            except: pass
+            utils.log('Imdb ID not recieved from title search, updating with new id of %s' % new_imdbnum)
             try:
-                try: _1CH.log('Title: %s Old IMDB: %s Old TVDB: %s New IMDB %s Year: %s' % (title, old_imdb, tvdbnum, new_imdbnum, year))
-                except: pass
+                utils.log('Title: %s Old IMDB: %s Old TVDB: %s New IMDB %s Year: %s' % (title, old_imdb, tvdbnum, new_imdbnum, year), xbmc.LOGDEBUG)
                 __metaget__.update_meta('tvshow', title, old_imdb, tvdbnum, new_imdbnum)
             except:
-                try: _1CH.log('Error while trying to update metadata with: %s, %s, %s, %s, %s' % (title, old_imdb, tvdbnum, new_imdbnum, year))
-                except: pass
+                utils.log('Error while trying to update metadata with: %s, %s, %s, %s, %s' % (title, old_imdb, tvdbnum, new_imdbnum, year), xbmc.LOGERROR)
             imdbnum = new_imdbnum
 
         season_nums = [season[0] for season in seasons]
@@ -1082,7 +1103,7 @@ def TVShowSeasonList(url, title, year='', old_imdb='', tvdbnum=''):
         num += 1
 
     if not seasons_found:
-        _1CH.log_error("No Seasons Found for %s at %s" % (title, url))
+        utils.log("No Seasons Found for %s at %s" % (title, url), xbmc.LOGERROR)
         _1CH.show_small_popup('PrimeWire','No Seasons Found for %s' % (title), 3000, ICON_PATH)
         return
     
@@ -1108,6 +1129,21 @@ def TVShowEpisodeList(title, season, imdbnum='', year=''):
 
     xbmcplugin.endOfDirectory(int(sys.argv[1]), cacheToDisc=_1CH.get_setting('dir-cache')=='true')
 
+def get_fav_urls(fav_type=None):
+    if utils.website_is_integrated():
+        if fav_type is None:
+            favs=pw_scraper.get_favorites('movies')
+            fav_urls=[fav['url'] for fav in favs]
+            favs=pw_scraper.get_favorites('tv')
+            fav_urls += [fav['url'] for fav in favs]
+        else:
+            favs=pw_scraper.get_favorites(fav_type)
+            fav_urls=[fav['url'] for fav in favs]
+    else:
+        favs=db_connection.get_favorites(fav_type)
+        fav_urls=[fav[2] for fav in favs]
+    return fav_urls
+    
 @pw_dispatcher.register(MODES.BROWSE_FAVS, ['section'])
 def browse_favorites(section):
     if not section: section='movie'
@@ -1184,11 +1220,11 @@ def migrate_favs_to_web():
         try:
             pw_scraper.add_favorite(favurl)
             ln3 = "Success"
-            _1CH.log('%s added successfully' % title)
+            utils.log('%s added successfully' % title, xbmc.LOGDEBUG)
             successes.append((title, favurl))
         except Exception as e:
             ln3= "Already Exists"
-            _1CH.log(e)
+            utils.log(e, xbmc.LOGDEBUG)
         count += 1
         progress.update(count*100/fav_len, ln1, 'Processed %s' % title, ln3)
     progress.close()
@@ -1293,15 +1329,14 @@ def browse_towatch_website(section, page=None):
     xbmcplugin.endOfDirectory(int(sys.argv[1]), cacheToDisc=_1CH.get_setting('dir-cache')=='true')
 
 def create_meta(video_type, title, year):
-    try: _1CH.log_debug('Calling Create Meta: %s, %s, %s' % (video_type, title, year))
-    except: pass
+    utils.log('Calling Create Meta: %s, %s, %s' % (video_type, title, year), xbmc.LOGDEBUG)
     meta = {'title': title, 'year': year, 'imdb_id': '', 'overlay': ''}
     if META_ON:
         try:
             if video_type == 'tvshow':
                 meta = __metaget__.get_meta(video_type, title, year=str(year))
                 if not meta['imdb_id'] and not meta['tvdb_id']:
-                    _1CH.log_debug('No Meta Match for %s on title & year: |%s|%s|' % (video_type, title, year))
+                    utils.log('No Meta Match for %s on title & year: |%s|%s|' % (video_type, title, year), xbmc.LOGDEBUG)
                     # call update_meta to force metahandlers to delete data it might have cached from get_meta
                     meta = __metaget__.update_meta(video_type, title, '')
 
@@ -1309,12 +1344,11 @@ def create_meta(video_type, title, year):
                 meta = __metaget__.get_meta(video_type, title, year=str(year))
 
         except Exception as e:
-            try: _1CH.log('Error (%s) assigning meta data for %s %s %s' % (str(e),video_type, title, year))
-            except: pass
+            utils.log('Error (%s) assigning meta data for %s %s %s' % (str(e),video_type, title, year), xbmc.LOGERROR)
     return meta
 
 def make_art(video_type, meta, pw_img):
-    _1CH.log_debug('Making Art: %s, %s, %s' % (video_type, meta, pw_img))
+    utils.log('Making Art: %s, %s, %s' % (video_type, meta, pw_img), xbmc.LOGDEBUG)
     # default fanart to theme fanart
     art_dict={'thumb': '', 'poster': '', 'fanart': art('fanart.png'), 'banner': ''}
 
@@ -1334,7 +1368,7 @@ def make_art(video_type, meta, pw_img):
     return art_dict
 
 def repair_missing_images():
-    _1CH.log("Repairing Metadata Images")
+    utils.log("Repairing Metadata Images")
     db_connection.repair_meta_images()
 
 @pw_dispatcher.register(MODES.ADD2LIB, ['video_type', 'url', 'title'], ['year', 'img', 'imdbnum'])
@@ -1344,8 +1378,7 @@ def manual_add_to_library(video_type, url, title, year='', img='', imdbnum=''):
     xbmc.executebuiltin(builtin)
 
 def add_to_library(video_type, url, title, img, year, imdbnum):
-    try: _1CH.log('Creating .strm for %s %s %s %s %s %s' % (video_type, title, imdbnum, url, img, year))
-    except: pass
+    utils.log('Creating .strm for %s %s %s %s %s %s' % (video_type, title, imdbnum, url, img, year))
     if video_type == 'tvshow':
         save_path = _1CH.get_setting('tvshow-folder')
         save_path = xbmc.translatePath(save_path)
@@ -1378,7 +1411,7 @@ def add_to_library(video_type, url, title, img, year, imdbnum):
                 
                 write_strm(strm_string, final_path)
         if not found_seasons:
-            _1CH.log_error('No Seasons found for %s at %s' % (show_title, url))
+            utils.log('No Seasons found for %s at %s' % (show_title, url), xbmc.LOGERROR)
                 
     elif video_type == 'movie':
         save_path = _1CH.get_setting('movie-folder')
@@ -1400,7 +1433,7 @@ def write_strm(stream, path):
             try: xbmcvfs.mkdirs(os.path.dirname(path))
             except: os.mkdir(os.path.dirname(path))
         except:
-            _1CH.log('Failed to create directory %s' % path)
+            utils.log('Failed to create directory %s' % path, xbmc.LOGERROR)
 
     old_strm_string=''
     try:
@@ -1413,12 +1446,12 @@ def write_strm(stream, path):
     # string will be blank if file doesn't exist or is blank
     if stream != old_strm_string:
         try:
-            _1CH.log('Writing strm: %s' % stream)
+            utils.log('Writing strm: %s' % stream)
             file_desc = xbmcvfs.File(path, 'w')
             file_desc.write(stream)
             file_desc.close()
         except Exception, e:
-            _1CH.log('Failed to create .strm file: %s\n%s' % (path, e))
+            utils.log('Failed to create .strm file: %s\n%s' % (path, e), xbmc.LOGERROR)
     
 @pw_dispatcher.register(MODES.ADD_SUB, ['url', 'title', 'year'], ['img', 'imdbnum'])
 def add_subscription(url, title, year, img='', imdbnum=''):
@@ -1460,7 +1493,7 @@ def manual_update_subscriptions():
 @pw_dispatcher.register(MODES.UPD_SUBS)
 def update_subscriptions():
     day=datetime.datetime.now().weekday()
-    subs=utils.get_subscriptions(day)
+    subs=get_subscriptions(day)
     for sub in subs:
         add_to_library('tvshow', sub[0], sub[1], sub[2], sub[3], sub[4])
 
@@ -1485,13 +1518,12 @@ def manual_clean_up_subscriptions():
 
 @pw_dispatcher.register(MODES.CLEAN_SUBS)
 def clean_up_subscriptions():
-    _1CH.log('Cleaning up dead subscriptions')
-    subs=utils.get_subscriptions()
+    utils.log('Cleaning up dead subscriptions')
+    subs=get_subscriptions()
     for sub in subs:
         meta = __metaget__.get_meta('tvshow', sub[1], year=sub[3])
         if meta['status'] == 'Ended':
-            try: _1CH.log('Selecting %s  for removal' % sub[1])
-            except: pass
+            utils.log('Selecting %s  for removal' % sub[1], xbmc.LOGDEBUG)
             cancel_subscription(sub[0])
 
 @pw_dispatcher.register(MODES.MAN_UPD_TOWATCH)
@@ -1520,9 +1552,9 @@ def manage_subscriptions():
     liz_url = _1CH.build_plugin_url({'mode': MODES.MAN_CLEAN_SUBS})
     xbmcplugin.addDirectoryItem(int(sys.argv[1]), liz_url, liz, isFolder=False)
     
-    fav_urls=utils.get_fav_urls('tv')
+    fav_urls=get_fav_urls('tv')
 
-    subs=utils.get_subscriptions(order_matters=True)
+    subs=get_subscriptions(order_matters=True)
     subs_len=len(subs)
     for sub in subs:
         url, title, img, year, _, days = sub
@@ -1533,7 +1565,7 @@ def manage_subscriptions():
         if '%s' in days_format:
             days_string = days_format % (days_string)
         else:
-            _1CH.log('Ignoring subscription days format because %s is missing')
+            utils.log('Ignoring subscription days format because %s is missing', xbmc.LOGDEBUG)
             
         meta = create_meta('tvshow', title, year)
         meta['title'] = utils.format_label_sub(meta)
@@ -1556,21 +1588,64 @@ def manage_subscriptions():
             
         menu_items.append(('Show Information', 'XBMC.Action(Info)',))
 
-        if META_ON:
-            try: fanart = meta['backdrop_url']
-            except: fanart = art('fanart.png')
-            try: img = meta['cover_url']
-            except: img = ''
-        else: fanart = art('fanart.png'); img = ''
+        art=make_art('tvshow', meta, img)
         label = '[%s] %s' % (days_string, meta['title'])
-        listitem = xbmcgui.ListItem(label, iconImage=img, thumbnailImage=img)
+        listitem = xbmcgui.ListItem(label, iconImage=art['thumb'], thumbnailImage=art['thumb'])
+        listitem.setProperty('fanart_image', art['fanart'])
+        try: listitem.setArt(art)
+        except: pass
         listitem.setInfo('video', meta)
-        listitem.setProperty('fanart_image', fanart)
         listitem.addContextMenuItems(menu_items, replaceItems=True)
         queries = {'mode': MODES.SEASON_LIST, 'title': title, 'url': url, 'img': img, 'imdbnum': meta['imdb_id'], 'video_type': 'tvshow', 'year': year}
         li_url = _1CH.build_plugin_url(queries)
         xbmcplugin.addDirectoryItem(int(sys.argv[1]), li_url, listitem, isFolder=True, totalItems=subs_len)
     _1CH.end_of_directory()
+
+def get_subscriptions(day=None, order_matters=False):
+    if utils.using_pl_subs():
+        def_days=utils.get_default_days()
+        items=pw_scraper.show_playlist(utils.get_subs_pl_url(), False)
+        ext_subs = db_connection.get_external_subs(SUB_TYPES.PW_PL)
+        subs=[]
+        for item in items:
+            if item['video_type']=='tvshow':
+                for i, sub in enumerate(ext_subs):
+                    if item['url']==sub[1]:
+                        item['days']=sub[3]
+                        del ext_subs[i]
+                        break
+                else:
+                    # add the item to ext_subs with default days
+                    db_connection.add_ext_sub(SUB_TYPES.PW_PL, item['url'], '', def_days)
+                    item['days']=def_days
+
+                # only add this item to the list if we are pulling all days or a day that this item runs on
+                if day is None or str(day) in item['days']:
+                    subs.append((item['url'], item['title'], item['img'], item['year'], '', item['days']))
+                
+                if order_matters:
+                    subs.sort(cmp=days_cmp, key=lambda k:k[5].ljust(7)+k[1])
+    else:
+        subs=db_connection.get_subscriptions(day, order_matters)
+    return subs
+
+# "all days" goes to the top, "no days" goes to the bottom, everything else is sorted lexicographically
+def days_cmp(x,y):
+    xdays, xtitle=x[:7], x[7:]
+    ydays, ytitle=y[:7], y[7:]
+    #print 'xdays,xtitle,ydays,ytitle: |%s|%s|%s|%s|' % (xdays,xtitle,ydays,ytitle)
+    if xdays==ydays:
+        return cmp(xtitle,ytitle)
+    elif xdays =='0123456':
+        return -1
+    elif ydays =='0123456':
+        return 1
+    elif xdays==' '*7:
+        return 1
+    elif ydays==' '*7:
+        return -1
+    else:
+        return cmp(x,y)
 
 def compose(inner_func, *outer_funcs):
     """Compose multiple unary functions together into a single unary function"""
@@ -1649,7 +1724,7 @@ def export_db():
                 builtin = "XBMC.Notification(Export Successful,Exported to %s,2000, %s)" % (export_file, ICON_PATH)
                 xbmc.executebuiltin(builtin)
     except Exception as e:
-        _1CH.log('Export Failed: %s' % (e))
+        utils.log('Export Failed: %s' % (e), xbmc.LOGERROR)
         builtin = "XBMC.Notification(Export,Export Failed,2000, %s)" % (ICON_PATH)
         xbmc.executebuiltin(builtin)
 
@@ -1664,7 +1739,7 @@ def import_db():
             builtin = "XBMC.Notification(Import Success,Imported from %s,5000, %s)" % (import_file, ICON_PATH)
             xbmc.executebuiltin(builtin)
     except Exception as e:
-        _1CH.log('Import Failed: %s' % (e))
+        utils.log('Import Failed: %s' % (e), xbmc.LOGERROR)
         builtin = "XBMC.Notification(Import,Import Failed,2000, %s)" % (ICON_PATH)
         xbmc.executebuiltin(builtin)
         raise
@@ -1689,7 +1764,7 @@ def edit_days(url, days=''):
             else:
                 raise # jump back
         else:
-            new_days=utils.days_select(days)
+            new_days=gui_utils.days_select(days)
             
         if utils.using_pl_subs():
             db_connection.edit_external_days(SUB_TYPES.PW_PL, url, new_days)
@@ -1700,13 +1775,20 @@ def edit_days(url, days=''):
 
 @pw_dispatcher.register(MODES.HELP)
 def show_help():
-    _1CH.log('Showing help popup')
+    utils.log('Showing help popup')
     try: utils.TextBox()
     except: pass
 
 @pw_dispatcher.register(MODES.FLUSH_CACHE)
 def flush_cache():
-    return utils.flush_cache()
+    dlg = xbmcgui.Dialog()
+    ln1 = 'Are you sure you want to '
+    ln2 = 'delete the url cache?'
+    ln3 = 'This will slow things down until rebuilt'
+    yes = 'Keep'
+    no = 'Delete'
+    if dlg.yesno('Flush web cache', ln1, ln2, ln3, yes, no):
+        db_connection.flush_cache()
 
 @pw_dispatcher.register(MODES.INSTALL_META, ['title'])
 def install_metapack(title):
@@ -1808,7 +1890,7 @@ def add_menu(video_type, title, url, liz_url, img, playable, year=''):
     
     menu_list = []
     if not utils.in_xbmc_favs(liz_url, utils.get_xbmc_fav_urls()): menu_list.append(action_list[0])
-    if url not in utils.get_fav_urls(section): menu_list.append(action_list[1])
+    if url not in get_fav_urls(section): menu_list.append(action_list[1])
     
     url_list = [item['url'] for item in pw_scraper.get_towatch(section)]
     if url not in url_list: menu_list.append(action_list[2])
@@ -1839,7 +1921,7 @@ def remove_menu(video_type, title, url, liz_url, img, playable):
     
     menu_list = []
     if utils.in_xbmc_favs(liz_url, utils.get_xbmc_fav_urls()): menu_list.append(action_list[0])
-    if url in utils.get_fav_urls(section): menu_list.append(action_list[1])
+    if url in get_fav_urls(section): menu_list.append(action_list[1])
     
     url_list = [item['url'] for item in pw_scraper.get_towatch(section)]
     if url in url_list: menu_list.append(action_list[2])
@@ -1856,8 +1938,8 @@ def remove_menu(video_type, title, url, liz_url, img, playable):
 def main(argv=None):
     if sys.argv: argv=sys.argv
 
-    _1CH.log('Version: |%s| Queries: |%s|' % (_1CH.get_version(),_1CH.queries))
-    _1CH.log('Args: |%s|' % (argv))
+    utils.log('Version: |%s| Queries: |%s|' % (_1CH.get_version(),_1CH.queries))
+    utils.log('Args: |%s|' % (argv))
     
     # don't process params that don't match our url exactly. (e.g. plugin://plugin.video.1channel/extrafanart)
     plugin_url = 'plugin://%s/' % (_1CH.get_id())
