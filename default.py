@@ -1606,30 +1606,36 @@ def manage_subscriptions():
 
 def get_subscriptions(day=None, order_matters=False):
     if utils.using_pl_subs():
-        def_days=utils.get_default_days()
         items=pw_scraper.show_playlist(utils.get_subs_pl_url(), False)
-        ext_subs = db_connection.get_external_subs(SUB_TYPES.PW_PL)
-        subs=[]
-        for item in items:
-            if item['video_type']=='tvshow':
-                for i, sub in enumerate(ext_subs):
-                    if item['url']==sub[1]:
-                        item['days']=sub[3]
-                        del ext_subs[i]
-                        break
-                else:
-                    # add the item to ext_subs with default days
-                    db_connection.add_ext_sub(SUB_TYPES.PW_PL, item['url'], '', def_days)
-                    item['days']=def_days
-
-                # only add this item to the list if we are pulling all days or a day that this item runs on
-                if day is None or str(day) in item['days']:
-                    subs.append((item['url'], item['title'], item['img'], item['year'], '', item['days']))
-                
-                if order_matters:
-                    subs.sort(cmp=days_cmp, key=lambda k:k[5].ljust(7)+k[1])
+        subs = sync_subscriptions(items, SUB_TYPES.PW_PL, day, order_matters)
     else:
         subs=db_connection.get_subscriptions(day, order_matters)
+    return subs
+
+def sync_subscriptions(items, external_sub_type, day=None, order_matters=False):
+    subs=[]
+    if items is None: return subs
+    def_days=utils.get_default_days()
+    ext_subs = db_connection.get_external_subs(external_sub_type)
+
+    for item in items:
+        if item['video_type']=='tvshow':
+            for i, sub in enumerate(ext_subs):
+                if item['url']==sub[1]:
+                    item['days']=sub[3]
+                    del ext_subs[i]
+                    break
+            else:
+                # add the item to ext_subs with default days
+                db_connection.add_ext_sub(external_sub_type, item['url'], '', def_days)
+                item['days']=def_days
+
+            # only add this item to the list if we are pulling all days or a day that this item runs on
+            if day is None or str(day) in item['days']:
+                subs.append((item['url'], item['title'], item['img'], item['year'], '', item['days']))
+            
+            if order_matters:
+                subs.sort(cmp=days_cmp, key=lambda k:k[5].ljust(7)+k[1])
     return subs
 
 # "all days" goes to the top, "no days" goes to the bottom, everything else is sorted lexicographically

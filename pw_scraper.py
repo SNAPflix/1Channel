@@ -141,14 +141,18 @@ class PW_Scraper():
         return self.__get_results_gen(html, url, page, paginate, pattern, self.__set_watched_result)  
 
     def __set_watched_result(self, match):
-            result = {}
-            link, img, year, title = match
-            if not year or len(year) != 4: year = '' 
-            result['url']=link.replace('/tv-', '/watch-', 1) # hack the returned watched url so that it matches all the other pages
-            result['img']=img
-            result['year']=year
-            result['title']=title
-            return result
+        result = {}
+        url, img, year, title = match
+        if not year or len(year) != 4: year = '' 
+        result['url']=url.replace('/tv-', '/watch-', 1) # hack the returned watched url so that it matches all the other pages
+        result['img']=img
+        result['year']=year
+        result['title']=title
+        if url.startswith('tv-'):
+            result['video_type']='tvshow'
+        else:
+            result['video_type']='movie'
+        return result
         
     # returns a generator of results of a title search each of which is a dictionary of url, title, img, and year
     def search(self, section, query, page=None, paginate=False):
