@@ -65,6 +65,7 @@ class Service(xbmc.Player):
         self.win.setProperty('1ch.playing', '')
         self.meta = ''
         self.primewire_url=''
+        self.imdb_id = None
 
 
     def onPlayBackStarted(self):
@@ -76,7 +77,6 @@ class Service(xbmc.Player):
             self.meta = json.loads(meta)
             self.video_type = 'tvshow' if 'episode' in self.meta else 'movie'
             if not 'year'    in self.meta: self.meta['year']    = ''
-            if not 'imdb'    in self.meta: self.meta['imdb']    = None
             if not 'season'  in self.meta: self.meta['season']  = ''
             if not 'episode' in self.meta: self.meta['episode'] = ''
             self.primewire_url = self.win.getProperty('1ch.playing.url')
@@ -84,6 +84,13 @@ class Service(xbmc.Player):
             if srt_path:
                 xbmc.log('1Channel: Service: Enabling subtitles: %s' % (srt_path))
                 self.setSubtitles(srt_path)
+
+            if 'imdb_id' in self.meta:
+                self.imdb_id = self.meta['imdb_id']
+            elif self.win.getProperty('1ch.playing.imdb'):
+                self.imdb_id = self.win.getProperty('1ch.playing.imdb')
+            else:
+                self.imdb_id = None
 
             self._totalTime=0
             while self._totalTime == 0:
@@ -118,7 +125,7 @@ class Service(xbmc.Player):
                     video_title = self.meta['title'] if self.video_type == 'movie' else self.meta['TVShowTitle']                
                     dbid = self.meta['DBID'] if 'DBID' in self.meta else ''
                     builtin = 'RunPlugin(plugin://plugin.video.1channel/?mode=%s&imdbnum=%s&video_type=%s&title=%s&season=%s&episode=%s&year=%s&primewire_url=%s&dbid=%s&watched=%s)'
-                    xbmc.executebuiltin(builtin % (MODES.CH_WATCH, self.meta['imdb'], videotype,video_title.strip(), self.meta['season'], self.meta['episode'], self.meta['year'], self.primewire_url, dbid, True))
+                    xbmc.executebuiltin(builtin % (MODES.CH_WATCH, self.imdb_id, videotype,video_title.strip(), self.meta['season'], self.meta['episode'], self.meta['year'], self.primewire_url, dbid, True))
                 db_connection.clear_bookmark(self.primewire_url)
             elif playedTime>0:
                 utils.log('Service: Threshold not met. Setting bookmark on %s to %s seconds' % (self.primewire_url,playedTime), xbmc.LOGDEBUG)
