@@ -221,7 +221,7 @@ def play_filtered_dialog(hosters, title, img, year, imdbnum, video_type, season,
     else:
         return
     
-    PlaySource(source, title, imdbnum, video_type, primewire_url, resume, year, season, episode, dbid)
+    PlaySource(source, title, video_type, primewire_url, resume, imdbnum, year, season, episode, dbid)
 
 def play_unfiltered_dialog(hosters, title, img, year, imdbnum, video_type, season, episode, primewire_url, resume, dbid):
     sources=[]
@@ -232,7 +232,7 @@ def play_unfiltered_dialog(hosters, title, img, year, imdbnum, video_type, seaso
     dialog = xbmcgui.Dialog()       
     index = dialog.select('Choose your stream', sources)
     if index > -1:
-        PlaySource(hosters[index]['url'], title, imdbnum, video_type, primewire_url, resume, year, season, episode, dbid)
+        PlaySource(hosters[index]['url'], title,video_type, primewire_url, resume, imdbnum, year, season, episode, dbid)
     else:
         return 
 
@@ -298,7 +298,7 @@ def auto_try_sources(hosters, title, img, year, imdbnum, video_type, season, epi
             label = utils.format_label_source(source)
             dlg.update(percent, '', line1 + label)
             utils.log('Trying Source: %s' % (source['host']), xbmc.LOGDEBUG)
-            if not PlaySource(source['url'], title, imdbnum, video_type, primewire_url, resume, year, season, episode, dbid): 
+            if not PlaySource(source['url'], title, video_type, primewire_url, resume, imdbnum, year, season, episode, dbid): 
                 dlg.update(percent, 'Playback Failed: %s' % (label), line1 + label)
                 utils.log('Source Failed: %s' % (source['host']), xbmc.LOGWARNING)
                 count += 1
@@ -1430,7 +1430,7 @@ def add_to_library(video_type, url, title, img, year, imdbnum):
 
                 filename = utils.filename_from_title(show_title, video_type)
                 filename = filename % (season_num, epnum)
-                show_title = re.sub(r'[^\w\-_\. ]', '_', show_title)
+                show_title = re.sub(r'([^\w\-_\. ]|\.$)', '_', show_title)
                 final_path = os.path.join(save_path, show_title, 'Season '+season_num, filename)
                 queries = {'mode': MODES.GET_SOURCES, 'url': epurl, 'imdbnum': '', 'title': show_title, 'img': '',
                            'dialog': 1, 'video_type': 'episode'}
