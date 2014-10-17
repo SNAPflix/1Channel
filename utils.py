@@ -48,7 +48,7 @@ MODES = enum(SAVE_FAV='SaveFav', DEL_FAV='DeleteFav', GET_SOURCES='GetSources', 
                    TOGGLE_X_FAVS='toggle_xbmc_fav', PLAYLISTS_MENU='playlists_menu', BROWSE_PLAYLISTS='get_playlists', SHOW_PLAYLIST='show_playlist', PL_PAGE_SELECT='PLPageSelect',
                    RM_FROM_PL='remove_from_playlist', ADD2PL='add_to_playlist', BROWSE_TW_WEB='browse_towatch_website', CH_TOWATCH_WEB='change_towatch_website',
                    CH_WATCH_WEB='change_watched_website', MAN_UPD_TOWATCH='man_update_towatch', RESET_DB='reset_db', EDIT_TVSHOW_ID='edit_tvshow_id', ADD_MENU='add_menu',
-                   REMOVE_MENU='remove_menu')
+                   REMOVE_MENU='remove_menu', INSTALL_THEMES='install_themes')
 
 SUB_TYPES  = enum(PW_PL=0)
 
